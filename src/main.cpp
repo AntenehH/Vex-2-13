@@ -11,6 +11,9 @@ pros::MotorGroup rightMotors({12,13,14}, pros::MotorGearset::blue); // right mot
 
 // Inertial Sensor on port 10
 pros::Imu imu(10);
+pros::Motor intakeMotor(20);
+
+bool inverse = false;
 
 // tracking wheels
 // horizontal tracking wheel encoder. Rotation sensor, port 20, not reversed
@@ -136,8 +139,17 @@ void autonomous() {
     // Move to x: 20 and y: 15, and face heading 90. Timeout set to 4000 ms
     lemlib::Pose poseA(53,-8,247);
     chassis.setPose(poseA);
-    chassis.moveToPoint(23,-21, 2000);
-    chassis.moveToPose(47, -47, 90, 2000);
+
+    chassis.turnToPoint(23, -21, 1000);
+    chassis.moveToPoint(23,-21, 1000);
+
+    chassis.turnToPoint(47, -47, 1000);
+    chassis.moveToPoint(47, -47, 500);
+
+    chassis.turnToPoint(62, -47, 1000);
+    chassis.moveToPoint(62, -47, 500);
+
+    chassis.moveToPoint(28, -47, 1000, {.forwards = false});
     chassis.waitUntilDone();
     pros::lcd::print(4, "Traveled 10 inches during pure pursuit!");
     // wait until the movement is done
@@ -151,14 +163,20 @@ void autonomous() {
 void opcontrol() {
     // controller
     // loop to continuously update motors
-    autonomous();
+    //autonomous();
 
     while (true) {
         // get joystick positions
         int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
         int rightX = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
 
-        if (controller.get_digital(DIGITAL_A)) {}
+        if (controller.get_digital(DIGITAL_A)) {
+            intakeMotor.move(127);
+        } else if (controller.get_digital(DIGITAL_DOWN)) {
+            intakeMotor.move(-127);
+        } else {
+            intakeMotor.move(0);
+        }
         // move the chassis with curvature drive
         chassis.arcade(leftY, rightX);
         // delay to save resources
