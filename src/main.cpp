@@ -11,7 +11,8 @@ pros::MotorGroup rightMotors({12,13,14}, pros::MotorGearset::blue); // right mot
 
 // Inertial Sensor on port 10
 pros::Imu imu(10);
-pros::Motor intakeMotor(20);
+pros::ADIDigitalOut piston('B');
+pros::Motor intakeMotor(4);
 
 bool inverse = false;
 
@@ -87,6 +88,8 @@ lemlib::Chassis chassis(drivetrain, linearController, angularController, sensors
  * All other competition modes are blocked by initialize; it is recommended
  * to keep execution time for this mode under a few seconds.
  */
+
+
 void initialize() {
     pros::lcd::initialize(); // initialize brain screen
     lemlib::Pose poseA(53,-8,247);
@@ -135,22 +138,35 @@ ASSET(example_txt); // '.' replaced with "_" to make c++ happy
  *
  * This is an example autonomous routine which demonstrates a lot of the features LemLib has to offer
  */
+
+void spinIntake() {
+    intakeMotor.move(-127);
+}
+
+void stopIntake() {
+    intakeMotor.move(0);
+}
+
 void autonomous() {
     // Move to x: 20 and y: 15, and face heading 90. Timeout set to 4000 ms
     lemlib::Pose poseA(48.5,-10.2,246);
+    piston.set_value(true);
     chassis.setPose(poseA);
 
-    chassis.turnToPoint(19, -23, 1000);
-    chassis.moveToPoint(19,-23, 1000);
-
+    chassis.turnToPoint(13, -25, 1000);
+    spinIntake();
+    chassis.moveToPoint(13,-25, 3000, {.maxSpeed = 70});
+    pros::delay(1500);
+    stopIntake();
+    
     chassis.turnToPoint(30, -48.5, 1000);
     chassis.moveToPoint(30, -48.5, 1000);
+    
+    chassis.turnToPoint(55, -54, 2000);
+    chassis.moveToPoint(55, -54, 2000);
 
-    chassis.turnToPoint(64, -54, 2000);
-    chassis.moveToPoint(64, -54, 2000);
-
-    chassis.moveToPoint(26, -54, 3000, {.forwards = false});
-    chassis.waitUntilDone();
+    chassis.moveToPoint(19.3, -54, 2000, {.forwards = false, .earlyExitRange = 1});
+    
     pros::lcd::print(4, "Traveled 10 inches during pure pursuit!");
     // wait until the movement is done
     pros::lcd::print(4, "pure pursuit finished!");
