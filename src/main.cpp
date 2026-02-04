@@ -5,16 +5,23 @@
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
 // motor groups
-pros::MotorGroup leftMotors({-1, -2, -3},
-                            pros::MotorGearset::blue); // left motor group - ports 3 (reversed), 4, 5 (reversed)
-pros::MotorGroup rightMotors({12,13,14}, pros::MotorGearset::blue); // right motor group - ports 6, 7, 9 (reversed)
+pros::MotorGroup leftMotors({-12, -13, -14},
+pros::MotorGearset::blue); // left motor group - ports 3 (reversed), 4, 5 (reversed)
+pros::MotorGroup rightMotors({1, 2, 3}, pros::MotorGearset::blue); // right motor group - ports 6, 7, 9 (reversed)
 
 // Inertial Sensor on port 10
 pros::Imu imu(10);
-pros::ADIDigitalOut piston('B');
-pros::Motor intakeMotor(4);
+pros::ADIDigitalOut switchPiston('B');
+pros::ADIDigitalOut matchLoader('A');
+pros::ADIDigitalOut descore('E');
+pros::Motor intakeMotor(20);
+pros::Motor outTakeMotor(9);
+
 
 bool inverse = false;
+bool switchPistonState = false;
+bool matchLoaderState = false;
+bool descoreState = false;
 
 // tracking wheels
 // horizontal tracking wheel encoder. Rotation sensor, port 20, not reversed
@@ -30,7 +37,7 @@ lemlib::TrackingWheel vertical(&verticalEnc, lemlib::Omniwheel::NEW_275, -2.5);
 lemlib::Drivetrain drivetrain(&leftMotors, // left motor group
                               &rightMotors, // right motor group
                               10, // 10 inch track width
-                              lemlib::Omniwheel::NEW_4, // using new 4" omnis
+                              lemlib::Omniwheel::NEW_325, // using new 4" omnis
                               360, // drivetrain rpm is 360
                               2 // horizontal drift is 2. If we had traction wheels, it would have been 8
 );
@@ -70,13 +77,13 @@ lemlib::OdomSensors sensors(nullptr, // vertical tracking wheel
 // input curve for throttle input during driver control
 lemlib::ExpoDriveCurve throttleCurve(3, // joystick deadband out of 127
                                      10, // minimum output where drivetrain will move out of 127
-                                     1.019 // expo curve gain
+                                     1 // expo curve gain
 );
 
 // input curve for steer input during driver control
 lemlib::ExpoDriveCurve steerCurve(3, // joystick deadband out of 127
                                   10, // minimum output where drivetrain will move out of 127
-                                  1.019 // expo curve gain
+                                  1 // expo curve gain
 );
 
 // create the chassis
@@ -141,16 +148,18 @@ ASSET(example_txt); // '.' replaced with "_" to make c++ happy
 
 void spinIntake() {
     intakeMotor.move(-127);
+    outTakeMotor.move(127);
 }
 
 void stopIntake() {
     intakeMotor.move(0);
+    outTakeMotor.move(0);
 }
 
 void autonomous() {
     // Move to x: 20 and y: 15, and face heading 90. Timeout set to 4000 ms
     lemlib::Pose poseA(48.5,-10.2,246);
-    piston.set_value(true);
+    switchPiston.set_value(true);
     chassis.setPose(poseA);
 
     chassis.turnToPoint(13, -25, 1000);
@@ -179,24 +188,57 @@ void autonomous() {
 void opcontrol() {
     // controller
     // loop to continuously update motors
-    autonomous();
+    //autonomous();
 
     while (true) {
         // get joystick positions
         int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
         int rightX = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
 
-        if (controller.get_digital(DIGITAL_A)) {
+        //r1 outtake
+        //l2 reverse intake
+        //a middle piston
+        //b for match loader
+        //right arrow descorer
+        if (controller.get_digital(DIGITAL_R2)) {
+            spinIntake();
+        } else if (controller.get_digital(DIGITAL_R1)) {
+            outTakeMotor.move(-127);
+        } else if (controller.get_digital(DIGITAL_L2)) {
             intakeMotor.move(127);
-        } else if (controller.get_digital(DIGITAL_DOWN)) {
-            intakeMotor.move(-127);
         } else {
-            intakeMotor.move(0);
+            stopIntake();
         }
-        // move the chassis with curvature drive
-        chassis.arcade(leftY, rightX);
+
+        // toggle match loader on B press
+        if (controller.get_digital_new_press(DIGITAL_B)) {
+            matchLoaderState = !matchLoaderState;
+            matchLoader.set_value(matchLoaderState);
+        }
+
+        // toggle descore on RIGHT press
+        if (controller.get_digital_new_press(DIGITAL_RIGHT)) {
+            descoreState = !descoreState;
+            descore.set_value(descoreState);
+        }
+
+        // toggle switch piston on A press
+        if (controller.get_digital_new_press(DIGITAL_A)) {
+            switchPistonState = !switchPistonState;
+            switchPiston.set_value(switchPistonState);
+        }
+        
+
+        // manual arcade with left motor compensation
+        // adjust leftScale until it drives straight (increase if still curving left)
+        double leftScale = 1;
+        double rightScale = 0.8;
+        int leftPower = (int)((leftY + rightX) * leftScale);
+        int rightPower = (int)((leftY - rightX) * rightScale);
+        leftMotors.move(leftPower);
+        rightMotors.move(rightPower);
+
         // delay to save resources
         pros::delay(10);
     }
 }
-
