@@ -75,6 +75,21 @@ void opcontrol(void);
  * You can add C++-only headers here
  */
 //#include <iostream>
+#include "lemlib/api.hpp"
+
+// --- Shared hardware (defined in main.cpp) ---
+extern pros::Controller controller;
+extern pros::MotorGroup leftMotors;
+extern pros::MotorGroup rightMotors;
+extern pros::Imu imu;
+extern pros::adi::DigitalOut switchPiston;
+extern pros::adi::DigitalOut matchLoader;
+extern pros::adi::DigitalOut descore;
+extern pros::Motor intakeMotor;
+extern pros::Motor outTakeMotor;
+extern lemlib::ExpoDriveCurve throttleCurve;
+extern lemlib::ExpoDriveCurve steerCurve;
+extern lemlib::Chassis chassis;
 #endif
 
 #endif  // _PROS_MAIN_H_
